@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projectile Motion Physics Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        #controls {
+            position: absolute;
+            top: 60px;
+            left: 10px;
+            z-index: 100;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #4CAF50;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            min-width: 280px;
+        }
+        #button-bar {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            text-align: center;
+            border-bottom: 2px solid #4CAF50;
+        }
+        #physics-info {
+            position: absolute;
+            top: 60px;
+            right: 10px;
+            z-index: 100;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid #2196F3;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        #score {
+            position: absolute;
+            top: 250px;
+            right: 10px;
+            z-index: 100;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid #FF6B35;
+            font-family: 'Arial', sans-serif;
+            font-size: 14px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        h3 {
+            margin: 0 0 15px 0;
+            color: #4CAF50;
+            text-align: center;
+        }
+        button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            margin: 5px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        button:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        button.fire { 
+            background: linear-gradient(45deg, #ff6b35, #f44336);
+            font-size: 16px;
+            padding: 12px 20px;
+        }
+        button.clear { 
+            background: linear-gradient(45deg, #607d8b, #455a64);
+        }
+        input[type="range"] {
+            width: 180px;
+            margin: 5px 0;
+            accent-color: #4CAF50;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px 0;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .value {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .physics-data {
+            margin: 5px 0;
+            color: #81C784;
+        }
+        .hit-message {
+            color: #FFD700;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 10px;
+            text-align: center;
+            text-shadow: 0 0 10px #FFD700;
+        }
+        .score-item {
+            margin: 5px 0;
+            color: #FFB74D;
+        }
+    </style>
+</head>
+<body>
+    <div id="button-bar">
+        <button class="fire" onclick="fireProjectile()">🚀 FIRE!</button>
+        <button onclick="clearTrails()" class="clear">Clear Trails</button>
+        <button onclick="toggleTrajectoryPreview()" id="previewBtn">Hide Preview</button>
+        <button onclick="resetTarget()" class="clear">Reset Target</button>
+    </div>
+
+    <div id="controls">
+        <h3>🎯 Projectile Launcher</h3>
+        
+        <label>Launch Angle: <span class="value" id="angleValue">45°</span></label>
+        <input type="range" id="angle" min="0" max="90" step="1" value="45">
+        
+        <label>Initial Velocity: <span class="value" id="velocityValue">50 m/s</span></label>
+        <input type="range" id="velocity" min="10" max="100" step="1" value="50">
+        
+        <label>Gravity: <span class="value" id="gravityValue">9.8 m/s²</span></label>
+        <input type="range" id="gravity" min="1" max="20" step="0.5" value="9.8">
+    </div>
+
+    <div id="physics-info">
+        <h3 style="color: #2196F3; font-size: 14px;">Physics Data</h3>
+        <div class="physics-data">Range: <span id="rangeCalc">0 m</span></div>
+        <div class="physics-data">Max Height: <span id="maxHeight">0 m</span></div>
+        <div class="physics-data">Flight Time: <span id="flightTime">0 s</span></div>
+        <div class="physics-data">Vx: <span id="vxComp">0 m/s</span></div>
+        <div class="physics-data">Vy: <span id="vyComp">0 m/s</span></div>
+    </div>
+
+    <div id="score">
+        <h3 style="color: #FF6B35; font-size: 14px;">🎯 Target Practice</h3>
+        <div class="score-item">Hits: <span id="hitCount">0</span></div>
+        <div class="score-item">Shots: <span id="shotCount">0</span></div>
+        <div class="score-item">Accuracy: <span id="accuracy">0%</span></div>
+        <div class="hit-message" id="hitMessage"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
+    <script>
+        let app, cannon, projectiles = [], allTrails = [], trajectoryPreview, particles = [];
+        let ground, target; // Keep references to environment elements
+        let showPreview = true;
+        let hitCount = 0, shotCount = 0;
+        
+        // Physics parameters
+        let launchAngle = 45; // degrees
+        let initialVelocity = 50; // m/s
+        let gravity = 9.8; // m/s²
+        
+        // Scaling factor (pixels per meter)
+        const scale = 8;
+        const groundLevel = 50;
+
+        function initPixi() {
+            app = new PIXI.Application({
+                width: window.innerWidth,
+                height: window.innerHeight,
+                backgroundColor: 0x87CEEB,
+                antialias: true
+            });
+            
+            document.body.appendChild(app.view);
+            
+            createEnvironment();
+            createCannon();
+            updatePhysicsDisplay();
+            
+            app.ticker.add(gameLoop);
+        }
+
+        function createEnvironment() {
+            // Create ground
+            ground = new PIXI.Graphics();
+            updateGround();
+            app.stage.addChild(ground);
+            
+            // Create bullseye target
+            target = new PIXI.Container();
+            createBullseyeTarget();
+            app.stage.addChild(target);
+        }
+
+        function createBullseyeTarget() {
+            target.removeChildren();
+            
+            // Target stand
+            const stand = new PIXI.Graphics();
+            stand.beginFill(0x8B4513);
+            stand.drawRect(-3, 0, 6, 80);
+            stand.endFill();
+            
+            // Bullseye target with concentric circles
+            const targetFace = new PIXI.Graphics();
+            
+            // Outer ring (red)
+            targetFace.beginFill(0xFF0000);
+            targetFace.drawCircle(0, -40, 40);
+            targetFace.endFill();
+            
+            // White ring
+            targetFace.beginFill(0xFFFFFF);
+            targetFace.drawCircle(0, -40, 30);
+            targetFace.endFill();
+            
+            // Red ring
+            targetFace.beginFill(0xFF0000);
+            targetFace.drawCircle(0, -40, 20);
+            targetFace.endFill();
+            
+            // White ring
+            targetFace.beginFill(0xFFFFFF);
+            targetFace.drawCircle(0, -40, 12);
+            targetFace.endFill();
+            
+            // Bull's eye (red)
+            targetFace.beginFill(0xFF0000);
+            targetFace.drawCircle(0, -40, 6);
+            targetFace.endFill();
+            
+            target.addChild(stand);
+            target.addChild(targetFace);
+            target.targetFace = targetFace;
+            target.hit = false;
+            
+            // Position target
+            target.x = app.screen.width - 150;
+            target.y = app.screen.height - groundLevel;
+        }
+
+        function resetTarget() {
+            target.hit = false;
+            createBullseyeTarget();
+            
+            // Clear hit message
+            document.getElementById('hitMessage').innerHTML = '';
+        }
+
+        function createHitEffect(x, y) {
+            // Create explosion particles
+            for (let i = 0; i < 30; i++) {
+                const particle = new PIXI.Graphics();
+                const colors = [0xFFD700, 0xFF6B35, 0xFF4444, 0xFFFFFF, 0xFFA500];
+                particle.beginFill(colors[Math.floor(Math.random() * colors.length)]);
+                particle.drawCircle(0, 0, Math.random() * 5 + 2);
+                particle.endFill();
+                
+                particle.x = x;
+                particle.y = y;
+                particle.vx = (Math.random() - 0.5) * 15;
+                particle.vy = (Math.random() - 0.5) * 15 - 5; // bias upward
+                particle.life = 1.0;
+                particle.decay = Math.random() * 0.015 + 0.01;
+                particle.gravity = 0.3;
+                
+                app.stage.addChild(particle);
+                particles.push(particle);
+            }
+            
+            // Flash effect on target
+            target.targetFace.clear();
+            target.targetFace.beginFill(0xFFD700);
+            target.targetFace.drawCircle(0, -40, 45);
+            target.targetFace.endFill();
+            
+            // Show hit message with animation
+            const messages = ['🎉 BULLSEYE!', '🔥 AMAZING!', '⭐ PERFECT!', '🏆 CHAMPION!'];
+            const message = messages[Math.floor(Math.random() * messages.length)];
+            document.getElementById('hitMessage').innerHTML = message;
+            
+            setTimeout(() => {
+                document.getElementById('hitMessage').innerHTML = '';
+            }, 3000);
+        }
+
+        function updateParticles() {
+            particles = particles.filter(particle => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                particle.vy += particle.gravity; // gravity effect
+                particle.vx *= 0.99; // air resistance
+                particle.life -= particle.decay;
+                particle.alpha = particle.life;
+                
+                if (particle.life <= 0) {
+                    app.stage.removeChild(particle);
+                    particle.destroy();
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        function updateGround() {
+            if (!ground) return;
+            ground.clear();
+            
+            // Draw ground spanning full width
+            ground.beginFill(0x8B4513);
+            ground.drawRect(0, app.screen.height - groundLevel, app.screen.width, groundLevel);
+            ground.endFill();
+            
+            // Add grass texture
+            ground.beginFill(0x228B22);
+            ground.drawRect(0, app.screen.height - groundLevel, app.screen.width, 10);
+            ground.endFill();
+        }
+
+        function createCannon() {
+            cannon = new PIXI.Container();
+            
+            // Cannon base
+            const base = new PIXI.Graphics();
+            base.beginFill(0x444444);
+            base.drawCircle(0, 0, 25);
+            base.endFill();
+            
+            // Cannon barrel
+            const barrel = new PIXI.Graphics();
+            barrel.beginFill(0x666666);
+            barrel.drawRect(0, -8, 60, 16);
+            barrel.endFill();
+            barrel.beginFill(0x333333);
+            barrel.drawRect(55, -10, 10, 20);
+            barrel.endFill();
+            
+            cannon.addChild(base);
+            cannon.addChild(barrel);
+            cannon.barrel = barrel;
+            
+            cannon.x = 100;
+            cannon.y = app.screen.height - groundLevel;
+            
+            app.stage.addChild(cannon);
+            updateCannonAngle();
+        }
+
+        function updateCannonAngle() {
+            const angleRad = (launchAngle * Math.PI) / 180;
+            cannon.barrel.rotation = -angleRad;
+        }
+
+        class Projectile {
+            constructor() {
+                this.startTime = Date.now();
+                
+                // Calculate actual barrel tip position based on angle
+                const angleRad = (launchAngle * Math.PI) / 180;
+                const barrelLength = 60;
+                this.startX = cannon.x + Math.cos(-angleRad) * barrelLength;
+                this.startY = cannon.y + Math.sin(-angleRad) * barrelLength;
+                
+                // Calculate initial velocity components
+                this.vx = initialVelocity * Math.cos(angleRad);
+                this.vy = -initialVelocity * Math.sin(angleRad); // negative because y increases downward
+                
+                this.x = this.startX;
+                this.y = this.startY;
+                
+                // Create trail
+                this.trail = new PIXI.Graphics();
+                app.stage.addChild(this.trail);
+                allTrails.push(this.trail); // Add to trails array
+                
+                // Create projectile graphic
+                this.graphic = new PIXI.Graphics();
+                this.graphic.beginFill(0xFF6B35);
+                this.graphic.drawCircle(0, 0, 4);
+                this.graphic.endFill();
+                this.graphic.beginFill(0xFFFFFF, 0.6);
+                this.graphic.drawCircle(-1, -1, 2);
+                this.graphic.endFill();
+                
+                app.stage.addChild(this.graphic);
+                
+                this.positions = [];
+                projectiles.push(this);
+                
+                // Update shot count
+                shotCount++;
+                document.getElementById('shotCount').textContent = shotCount;
+                updateAccuracy();
+            }
+            
+            update() {
+                const currentTime = Date.now();
+                const t = (currentTime - this.startTime) / 1000; // time in seconds
+                
+                // Physics equations for projectile motion
+                this.x = this.startX + this.vx * t * scale;
+                this.y = this.startY + this.vy * t * scale + 0.5 * gravity * t * t * scale;
+                
+                this.graphic.x = this.x;
+                this.graphic.y = this.y;
+                
+                // Add position to trail
+                this.positions.push({x: this.x, y: this.y});
+                
+                // Draw trail
+                this.trail.clear();
+                this.trail.lineStyle(2, 0xFF6B35, 0.8);
+                if (this.positions.length > 1) {
+                    this.trail.moveTo(this.positions[0].x, this.positions[0].y);
+                    for (let i = 1; i < this.positions.length; i++) {
+                        this.trail.lineTo(this.positions[i].x, this.positions[i].y);
+                    }
+                }
+                
+                // Check collision with bullseye target
+                if (!target.hit) {
+                    const dx = this.x - target.x;
+                    const dy = this.y - (target.y - 40); // Target center is 40 pixels up from base
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 40) { // Target outer radius
+                        target.hit = true;
+                        hitCount++;
+                        document.getElementById('hitCount').textContent = hitCount;
+                        updateAccuracy();
+                        createHitEffect(this.x, this.y);
+                        
+                        // Remove this projectile
+                        this.destroy();
+                        return false;
+                    }
+                }
+                
+                // Check if projectile hit ground
+                if (this.y >= app.screen.height - groundLevel) {
+                    this.y = app.screen.height - groundLevel;
+                    this.graphic.y = this.y;
+                    return false; // Stop updating
+                }
+                
+                return this.x < app.screen.width + 100; // Continue if still on screen
+            }
+            
+            destroy() {
+                app.stage.removeChild(this.graphic);
+                app.stage.removeChild(this.trail);
+                
+                // Remove trail from allTrails array
+                const trailIndex = allTrails.indexOf(this.trail);
+                if (trailIndex > -1) {
+                    allTrails.splice(trailIndex, 1);
+                }
+                
+                this.graphic.destroy();
+                this.trail.destroy();
+            }
+        }
+
+        function updateAccuracy() {
+            const accuracy = shotCount > 0 ? Math.round((hitCount / shotCount) * 100) : 0;
+            document.getElementById('accuracy').textContent = accuracy + '%';
+        }
+
+        function drawTrajectoryPreview() {
+            if (trajectoryPreview) {
+                app.stage.removeChild(trajectoryPreview);
+                trajectoryPreview.destroy();
+            }
+            
+            if (!showPreview) return;
+            
+            trajectoryPreview = new PIXI.Graphics();
+            
+            const angleRad = (launchAngle * Math.PI) / 180;
+            const vx = initialVelocity * Math.cos(angleRad);
+            const vy = -initialVelocity * Math.sin(angleRad);
+            
+            // Calculate actual barrel tip position based on angle
+            const barrelLength = 60;
+            const startX = cannon.x + Math.cos(-angleRad) * barrelLength;
+            const startY = cannon.y + Math.sin(-angleRad) * barrelLength;
+            
+            // Create dashed line effect with dots
+            for (let t = 0; t < 10; t += 0.2) {
+                const x = startX + vx * t * scale;
+                const y = startY + vy * t * scale + 0.5 * gravity * t * t * scale;
+                
+                if (y >= app.screen.height - groundLevel) break;
+                
+                trajectoryPreview.beginFill(0xFFFFFF, 0.6);
+                trajectoryPreview.drawCircle(x, y, 2);
+                trajectoryPreview.endFill();
+            }
+            
+            app.stage.addChild(trajectoryPreview);
+        }
+
+        function updatePhysicsDisplay() {
+            const angleRad = (launchAngle * Math.PI) / 180;
+            const vx = initialVelocity * Math.cos(angleRad);
+            const vy = initialVelocity * Math.sin(angleRad);
+            
+            // Calculate theoretical values
+            const range = (initialVelocity * initialVelocity * Math.sin(2 * angleRad)) / gravity;
+            const maxHeight = (vy * vy) / (2 * gravity);
+            const flightTime = (2 * vy) / gravity;
+            
+            document.getElementById('rangeCalc').textContent = `${range.toFixed(1)} m`;
+            document.getElementById('maxHeight').textContent = `${maxHeight.toFixed(1)} m`;
+            document.getElementById('flightTime').textContent = `${flightTime.toFixed(2)} s`;
+            document.getElementById('vxComp').textContent = `${vx.toFixed(1)} m/s`;
+            document.getElementById('vyComp').textContent = `${vy.toFixed(1)} m/s`;
+            
+            drawTrajectoryPreview();
+        }
+
+        function gameLoop() {
+            // Update all projectiles
+            projectiles = projectiles.filter(projectile => projectile.update());
+            
+            // Update particle effects
+            updateParticles();
+        }
+
+        function fireProjectile() {
+            new Projectile();
+        }
+
+        function clearTrails() {
+            allTrails.forEach(trail => {
+                if (trail) {
+                    trail.clear();
+                }
+            });
+        }
+
+        function clearProjectiles() {
+            projectiles.forEach(projectile => projectile.destroy());
+            projectiles = [];
+            allTrails.length = 0; // Clear the trails array
+        }
+
+        function toggleTrajectoryPreview() {
+            showPreview = !showPreview;
+            const btn = document.getElementById('previewBtn');
+            
+            if (!showPreview) {
+                if (trajectoryPreview) {
+                    app.stage.removeChild(trajectoryPreview);
+                    trajectoryPreview.destroy();
+                    trajectoryPreview = null;
+                }
+                btn.textContent = 'Show Preview';
+            } else {
+                drawTrajectoryPreview();
+                btn.textContent = 'Hide Preview';
+            }
+        }
+
+        // Control event listeners
+        document.getElementById('angle').addEventListener('input', (e) => {
+            launchAngle = parseInt(e.target.value);
+            document.getElementById('angleValue').textContent = launchAngle + '°';
+            updateCannonAngle();
+            updatePhysicsDisplay();
+        });
+
+        document.getElementById('velocity').addEventListener('input', (e) => {
+            initialVelocity = parseInt(e.target.value);
+            document.getElementById('velocityValue').textContent = initialVelocity + ' m/s';
+            updatePhysicsDisplay();
+        });
+
+        document.getElementById('gravity').addEventListener('input', (e) => {
+            gravity = parseFloat(e.target.value);
+            document.getElementById('gravityValue').textContent = gravity + ' m/s²';
+            updatePhysicsDisplay();
+        });
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                fireProjectile();
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            app.renderer.resize(window.innerWidth, window.innerHeight);
+            updateGround();
+            
+            // Update target position
+            if (target) {
+                target.x = app.screen.width - 150;
+                target.y = app.screen.height - groundLevel;
+            }
+            
+            // Update cannon position
+            if (cannon) {
+                cannon.x = 100;
+                cannon.y = app.screen.height - groundLevel;
+            }
+            
+            // Redraw trajectory preview
+            drawTrajectoryPreview();
+        });
+
+        // Initialize
+        initPixi();
+    </script>
+</body>
+</html>
